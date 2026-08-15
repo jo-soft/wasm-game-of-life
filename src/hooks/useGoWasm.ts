@@ -6,17 +6,17 @@ declare global {
       importObject: WebAssembly.Imports;
       run: (instance: WebAssembly.Instance) => Promise<void>;
     };
-    __wasmReadyPromise__?: Promise<any>;
+    __wasmReadyPromise__?: Promise<unknown>;
   }
 }
 
-interface UseGoWasmResult<T = any> {
+interface UseGoWasmResult<T = unknown> {
   api: T | null;
   isReady: boolean;
   error: string | null;
 }
 
-export function useGoWasm<T = any>(
+export function useGoWasm<T = unknown>(
   wasmUrl: string,
   scriptUrl: string = '/wasm_exec.js'
 ): UseGoWasmResult<T> {
@@ -52,7 +52,7 @@ export function useGoWasm<T = any>(
         go.run(instance).catch((err) => console.error('[go-wasm] Runtime error:', err));
 
         // Wait for the Go code to populate the promise and resolve it
-        const api = await window.__wasmReadyPromise__;
+        const api = await window.__wasmReadyPromise__ as T;
         delete window.__wasmReadyPromise__;
 
         if (isMounted) {

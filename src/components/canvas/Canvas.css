@@ -1,0 +1,33 @@
+.canvas-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.canvas-surface {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.canvas-html-grid {
+  width: 512px;
+  height: 512px;
+  display: grid;
+  visibility: visible;
+
+  grid-template-columns: repeat(var(--cols), 1fr);
+  grid-template-rows: repeat(var(--rows), 1fr);
+}
+
+.canvas-cell {
+  width: 100%;
+  height: 100%;
+}
+
+.canvas-cell.is-alive {
+  background-color: var(--alive, #1a1a1a);
+}
+
+.canvas-cell.is-dead {
+  background-color: var(--dead, #ecdede);
+}
