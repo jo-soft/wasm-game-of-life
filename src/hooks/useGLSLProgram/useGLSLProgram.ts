@@ -70,25 +70,24 @@ function createProgram(
 }
 
 export function useGLSLProgram(
-  gl: WebGL2RenderingContext,
+  gl: WebGL2RenderingContext | null,
   vsSource: string,
   fsSource: string
 ): UseShaderHookResult {
-  const [program, err] = useMemo(() => {
+  const result = useMemo(() => {
     if (!gl) {
-      return [null, null] satisfies UseShaderHookResultError;
+      return [null, 'WebGL context not available'] satisfies UseShaderHookResultError;
     }
-
     return createProgram(gl, vsSource, fsSource);
   }, [gl, vsSource, fsSource]);
 
   useEffect(() => {
     return () => {
-      if (gl && program) {
-        gl.deleteProgram(program);
+      if (gl && result[0]) {
+        gl.deleteProgram(result[0]);
       }
     };
-  }, [gl, program]);
+  }, [gl, result]);
 
-  return [program, err];
+  return result;
 }

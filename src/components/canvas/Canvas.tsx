@@ -105,7 +105,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!gl || !program || rows === 0 || cols === 0) return;
+    if (!rows || !cols || !program || !gl) return;
 
     const mesh = createMesh(topology.parametrization);
 

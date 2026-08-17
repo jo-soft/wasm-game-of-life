@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import checker from 'vite-plugin-checker';
 import react from '@vitejs/plugin-react'
 import glsl from 'vite-plugin-glsl'
 import { execSync, exec } from 'child_process'
@@ -170,9 +171,14 @@ function autoGoWasmPlugin() {
   }
 }
 
+
 export default defineConfig({
   plugins: [
     react(), 
     glsl(),
-    autoGoWasmPlugin()],
+    autoGoWasmPlugin(),
+    checker({
+      typescript: true,
+    })
+  ],
 })
