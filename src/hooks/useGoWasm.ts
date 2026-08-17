@@ -52,7 +52,7 @@ export function useGoWasm<T = unknown>(
         go.run(instance).catch((err) => console.error('[go-wasm] Runtime error:', err));
 
         // Wait for the Go code to populate the promise and resolve it
-        const api = await window.__wasmReadyPromise__ as T;
+        const api = (await window.__wasmReadyPromise__) as T;
         delete window.__wasmReadyPromise__;
 
         if (isMounted) {

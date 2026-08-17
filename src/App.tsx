@@ -1,12 +1,12 @@
-import { useState } from 'react'
-import { useGoWasm } from './hooks/useGoWasm'
-import type GameOfLifeApi from './@types/gameOfLife/gameOfLife'
-import Canvas from './components/canvas'
-import { Topologies } from './topologies'
-import './App.css'
+import { useState } from 'react';
+import { useGoWasm } from './hooks/useGoWasm';
+import type GameOfLifeApi from './@types/gameOfLife/gameOfLife';
+import Canvas from './components/canvas';
+import { Topologies } from './topologies';
+import './App.css';
 
-const ROWS = 2**5;
-const COLS = 2**5;
+const ROWS = 2 ** 5;
+const COLS = 2 ** 5;
 const alivePerventage = 0.5;
 
 const totalCells = ROWS * COLS;
@@ -19,7 +19,7 @@ for (let i = flatGrid.length - 1; i > 0; i--) {
   [flatGrid[i], flatGrid[j]] = [flatGrid[j], flatGrid[i]];
 }
 
-const randomGrid: boolean[][] = Array.from({ length: ROWS }, (_, r) => 
+const randomGrid: boolean[][] = Array.from({ length: ROWS }, (_, r) =>
   Array.from({ length: COLS }, (_, c) => flatGrid[r * COLS + c])
 );
 
@@ -27,7 +27,7 @@ export function App() {
   const { api, isReady, error } = useGoWasm<GameOfLifeApi>('/gameOfLife/gameOfLife.wasm');
   const [grid] = useState<boolean[][]>(randomGrid);
 
-  if (error) return <div style={{ color: 'red' }}>Error: {error}</div>
+  if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
 
   return (
     <div className="app">
@@ -37,7 +37,7 @@ export function App() {
         <Canvas grid={grid} topology={Topologies.mobiusBand} />
       </div>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

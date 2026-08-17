@@ -10,8 +10,7 @@ export function useGl<T extends WebGL2RenderingContext | null>(
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // TS natively infers WebGL2RenderingContext | null without assertions
-    const context: T | null= canvas.getContext('webgl2', options) as T;
+    const context: T | null = canvas.getContext('webgl2', options) as T;
     setGl(context);
 
     return () => {

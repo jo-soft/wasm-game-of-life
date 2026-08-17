@@ -14,5 +14,5 @@ export const Sphere: TopologyConfig = {
     const y = Math.sin(phi) * Math.sin(theta);
     const z = Math.cos(phi);
     return { x, y, z };
-  }
+  },
 };

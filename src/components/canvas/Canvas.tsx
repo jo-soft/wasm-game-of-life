@@ -10,7 +10,7 @@ import {
 import { CanvasProps, MeshData, WebGLRenderingContextExtended } from './types';
 import { createMesh, perspective, translate4, multiply4, rotateX, rotateY } from './math';
 import { useGl } from '../../hooks/useGl';
-import { useShaderProgram } from '../../hooks/useShaderProgram';
+import { useGLSLProgram } from '../../hooks/useGLSLProgram/useGLSLProgram';
 import VS_SOURCE from './shaders/simple.vert';
 import FS_SOURCE from './shaders/simple.frag';
 import './Canvas.css';
@@ -33,7 +33,6 @@ function createStaticBuffer(
   gl.bufferData(target, data, gl.STATIC_DRAW);
   return buffer;
 }
-
 
 export const Canvas: React.FC<CanvasProps> = ({
   grid,
@@ -72,7 +71,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     htmlGrid.setAttribute('layoutsubtree', '');
   }, []);
 
-  const program = useShaderProgram(gl, VS_SOURCE, FS_SOURCE);
+  const [program, compileErr] = useGLSLProgram(gl, VS_SOURCE, FS_SOURCE);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -222,10 +221,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       const aspect = canvas.width / canvas.height;
       const proj = perspective(CAMERA_FOV_RAD, aspect, CAMERA_NEAR, CAMERA_FAR);
       const view = translate4(0, 0, CAMERA_DISTANCE_Z);
-      const model = multiply4(
-        rotateY(timeMs * ROTATION_SPEED_Y),
-        rotateX(ROTATION_TILT_X)
-      );
+      const model = multiply4(rotateY(timeMs * ROTATION_SPEED_Y), rotateX(ROTATION_TILT_X));
       const mvp = multiply4(proj, multiply4(view, model));
 
       gl.useProgram(program);
@@ -253,6 +249,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   return (
     <div className="canvas-shell">
+      {compileErr && <p>{compileErr}</p>}
       <canvas ref={canvasRef} className="canvas-surface">
         <div
           ref={htmlGridRef}
@@ -270,10 +267,7 @@ export const Canvas: React.FC<CanvasProps> = ({
         >
           {grid.map((row, r) =>
             row.map((alive, c) => (
-              <div
-                key={`${r}-${c}`}
-                className={`canvas-cell ${alive ? 'is-alive' : 'is-dead'}`}
-              />
+              <div key={`${r}-${c}`} className={`canvas-cell ${alive ? 'is-alive' : 'is-dead'}`} />
             ))
           )}
         </div>

@@ -8,6 +8,6 @@ export type GlueFunction = (
 export type ParametrizationFunction = (u: number, v: number) => { x: number; y: number; z: number };
 
 export interface TopologyConfig {
-    glue: GlueFunction;
-    parametrization: ParametrizationFunction;
+  glue: GlueFunction;
+  parametrization: ParametrizationFunction;
 }

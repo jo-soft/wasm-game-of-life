@@ -15,4 +15,10 @@ const Topologies: Record<string, TopologyConfig> = {
 
 type Topology = keyof typeof Topologies;
 
-export { Topologies, type Topology, type TopologyConfig, type ParametrizationFunction, type GlueFunction };
+export {
+  Topologies,
+  type Topology,
+  type TopologyConfig,
+  type ParametrizationFunction,
+  type GlueFunction,
+};

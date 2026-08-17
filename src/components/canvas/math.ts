@@ -39,8 +39,8 @@ export function buildParametricMesh(
 
 export function createMesh(
   parametrization: ParametrizationFunction,
-  uSegments = 128,
-  vSegments = 64
+  uSegments = 256,
+  vSegments = 256
 ): MeshData {
   return buildParametricMesh(uSegments, vSegments, (u, v) => {
     const { x, y, z } = parametrization(u, v);
@@ -66,14 +66,31 @@ export function multiply4(a: Float32Array, b: Float32Array): Float32Array {
   return out;
 }
 
-export function perspective(fovyRad: number, aspect: number, near: number, far: number): Float32Array {
+export function perspective(
+  fovyRad: number,
+  aspect: number,
+  near: number,
+  far: number
+): Float32Array {
   const f = 1 / Math.tan(fovyRad / 2);
   const nf = 1 / (near - far);
   return new Float32Array([
-    f / aspect, 0, 0, 0,
-    0, f, 0, 0,
-    0, 0, (far + near) * nf, -1,
-    0, 0, (2 * far * near) * nf, 0,
+    f / aspect,
+    0,
+    0,
+    0,
+    0,
+    f,
+    0,
+    0,
+    0,
+    0,
+    (far + near) * nf,
+    -1,
+    0,
+    0,
+    2 * far * near * nf,
+    0,
   ]);
 }
 

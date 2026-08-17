@@ -1,4 +1,3 @@
-
 import type { TopologyConfig } from '../../topologies';
 
 export interface MeshData {
