@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+
+import { useEffect, useMemo } from 'react';
 
 function compileShader(gl: WebGLRenderingContext, type: number, source: string): WebGLShader {
   const shader = gl.createShader(type);
@@ -31,37 +32,28 @@ function createProgram(gl: WebGLRenderingContext, vsSource: string, fsSource: st
   return program;
 }
 
-import { useState, useEffect } from 'react';
-
 export function useShaderProgram(
   gl: WebGLRenderingContext | null,
   vsSource: string,
   fsSource: string
 ): WebGLProgram | null {
-  const [program, setProgram] = useState<WebGLProgram | null>(null);
-
-  useEffect(() => {
-    if (!gl) {
-      return;
-    }
-
-    let nextProgram: WebGLProgram | null = null;
-
+  const program = useMemo(() => {
+    if (!gl) return null;
     try {
-      nextProgram = createProgram(gl, vsSource, fsSource);
-      setProgram(nextProgram);
+      return createProgram(gl, vsSource, fsSource);
     } catch (error) {
       console.error('[canvas] shader program creation failed:', error);
-      setProgram(null);
+      return null;
     }
-
-    return () => {
-      if (nextProgram) {
-        gl.deleteProgram(nextProgram);
-      }
-      setProgram(null);
-    };
   }, [gl, vsSource, fsSource]);
 
-  return gl ? program : null;
+  useEffect(() => {
+    return () => {
+      if (gl && program) {
+        gl.deleteProgram(program);
+      }
+    };
+  }, [gl, program]);
+
+  return program;
 }
