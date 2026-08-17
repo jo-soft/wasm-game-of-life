@@ -6,7 +6,7 @@ import {
   CompileShaderResult,
   CompileShaderSuccess,
   CompileShaderError,
-} from '../useShader.types';
+} from './useGLSLProgram.types';
 
 function compileShader(
   gl: WebGL2RenderingContext,
