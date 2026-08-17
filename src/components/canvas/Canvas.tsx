@@ -1,3 +1,4 @@
+import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import {
   CAMERA_FOV_RAD,
   CAMERA_NEAR,
@@ -6,10 +7,12 @@ import {
   ROTATION_SPEED_Y,
   ROTATION_TILT_X,
 } from './constants';
-import React, { useEffect, useLayoutEffect, useRef } from 'react';
-import { CanvasProps, WebGLRenderingContextExtended } from './types';
+import { CanvasProps, MeshData, WebGLRenderingContextExtended } from './types';
 import { createMesh, perspective, translate4, multiply4, rotateX, rotateY } from './math';
-import { VS_SOURCE, FS_SOURCE, createProgram } from './shaders';
+import { useGl } from '../../hooks/useGl';
+import { useShaderProgram } from '../../hooks/useShaderProgram';
+import VS_SOURCE from './shaders/simple.vert';
+import FS_SOURCE from './shaders/simple.frag';
 import './Canvas.css';
 
 declare global {
@@ -18,6 +21,19 @@ declare global {
     requestPaint?: () => void;
   }
 }
+
+function createStaticBuffer(
+  gl: WebGL2RenderingContext,
+  target: number,
+  data: AllowSharedBufferSource // ✅ Accepts Float32Array<ArrayBufferLike>
+): WebGLBuffer | null {
+  const buffer = gl.createBuffer();
+  if (!buffer) return null;
+  gl.bindBuffer(target, buffer);
+  gl.bufferData(target, data, gl.STATIC_DRAW);
+  return buffer;
+}
+
 
 export const Canvas: React.FC<CanvasProps> = ({
   grid,
@@ -30,34 +46,44 @@ export const Canvas: React.FC<CanvasProps> = ({
   const rafIdRef = useRef<number>(0);
   const dirtyTextureRef = useRef<boolean>(true);
 
+  const resourcesRef = useRef<{
+    mesh: MeshData;
+    vao: WebGLVertexArrayObject;
+    posBuffer: WebGLBuffer;
+    uvBuffer: WebGLBuffer;
+    indexBuffer: WebGLBuffer;
+    texture: WebGLTexture;
+    uMvp: WebGLUniformLocation | null;
+  } | null>(null);
+
+  const glOptions = useMemo<WebGLContextAttributes>(() => ({ antialias: true }), []);
+  const gl = useGl<WebGLRenderingContextExtended>(canvasRef, glOptions);
+
   const rows = grid.length;
   const cols = rows > 0 ? grid[0].length : 0;
 
+  // Experimental Chromium Layout Attribute Setup
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
     const htmlGrid = htmlGridRef.current;
     if (!canvas || !htmlGrid) return;
 
-    // Chromium HTML-in-canvas feature flag currently keys off this attribute.
     canvas.setAttribute('layoutsubtree', '');
     htmlGrid.setAttribute('layoutsubtree', '');
   }, []);
 
+  const program = useShaderProgram(gl, VS_SOURCE, FS_SOURCE);
+
   useEffect(() => {
     const canvas = canvasRef.current;
-    const htmlGrid = htmlGridRef.current;
-    if (!canvas || !htmlGrid || rows === 0 || cols === 0) return;
+    if (!canvas) return;
 
-    const gl: WebGLRenderingContextExtended | null = canvas.getContext('webgl2', { antialias: true });
-    if (!gl) return;
-
-    // --- ResizeObserver Setup ---
     const observer = new ResizeObserver(([entry]) => {
-      const dpc: readonly ResizeObserverSize[] = entry.devicePixelContentBoxSize;
-      const newWidth: number = dpc
+      const dpc = entry.devicePixelContentBoxSize;
+      const newWidth = dpc
         ? dpc[0].inlineSize
         : Math.round(entry.contentRect.width * window.devicePixelRatio);
-      const newHeight: number = dpc
+      const newHeight = dpc
         ? dpc[0].blockSize
         : Math.round(entry.contentRect.height * window.devicePixelRatio);
 
@@ -71,82 +97,120 @@ export const Canvas: React.FC<CanvasProps> = ({
       typeof ResizeObserverEntry !== 'undefined' &&
       'devicePixelContentBoxSize' in ResizeObserverEntry.prototype;
 
-    const options: ResizeObserverOptions = supportsDevicePixelContentBox
-      ? { box: 'device-pixel-content-box'}
-      : {};
+    observer.observe(
+      canvas,
+      supportsDevicePixelContentBox ? { box: 'device-pixel-content-box' } : {}
+    );
 
-    observer.observe(canvas, options);
+    return () => observer.disconnect();
+  }, []);
 
-    const initialWidth = Math.max(1, Math.floor(canvas.clientWidth * window.devicePixelRatio));
-    const initialHeight = Math.max(1, Math.floor(canvas.clientHeight * window.devicePixelRatio));
-    if (canvas.width !== initialWidth || canvas.height !== initialHeight) {
-      canvas.width = initialWidth;
-      canvas.height = initialHeight;
-    }
+  useEffect(() => {
+    if (!gl || !program || rows === 0 || cols === 0) return;
 
-    // --- WebGL Setup ---
-    const program = createProgram(gl, VS_SOURCE, FS_SOURCE);
     const mesh = createMesh(topology.parametrization);
 
-    const posBuffer = gl.createBuffer();
-    const uvBuffer = gl.createBuffer();
-    const indexBuffer = gl.createBuffer();
+    const vao = gl.createVertexArray();
+    if (!vao) return;
+
+    gl.bindVertexArray(vao);
+
+    const posBuffer = createStaticBuffer(gl, gl.ARRAY_BUFFER, mesh.positions);
+    const uvBuffer = createStaticBuffer(gl, gl.ARRAY_BUFFER, mesh.uvs);
+    const indexBuffer = createStaticBuffer(gl, gl.ELEMENT_ARRAY_BUFFER, mesh.indices);
+
     const texture = gl.createTexture();
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, mesh.positions, gl.STATIC_DRAW);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, mesh.uvs, gl.STATIC_DRAW);
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.indices, gl.STATIC_DRAW);
+    if (!posBuffer || !uvBuffer || !indexBuffer || !texture) {
+      if (vao) gl.deleteVertexArray(vao);
+      return;
+    }
 
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
 
     gl.useProgram(program);
 
     const aPos = gl.getAttribLocation(program, 'aPos');
     const aUv = gl.getAttribLocation(program, 'aUv');
-    const uMvp = gl.getUniformLocation(program, 'uMvp');
     const uTex = gl.getUniformLocation(program, 'uTex');
+    const uMvp = gl.getUniformLocation(program, 'uMvp');
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
-    gl.enableVertexAttribArray(aPos);
-    gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
+    if (aPos >= 0) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+      gl.enableVertexAttribArray(aPos);
+      gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
+    }
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-    gl.enableVertexAttribArray(aUv);
-    gl.vertexAttribPointer(aUv, 2, gl.FLOAT, false, 0, 0);
+    if (aUv >= 0) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+      gl.enableVertexAttribArray(aUv);
+      gl.vertexAttribPointer(aUv, 2, gl.FLOAT, false, 0, 0);
+    }
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 
+    gl.bindVertexArray(null);
+
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.uniform1i(uTex, 0);
+    if (uTex) gl.uniform1i(uTex, 0);
 
     gl.enable(gl.DEPTH_TEST);
     gl.clearColor(0.97, 0.97, 0.98, 1.0);
 
-    const uploadHtmlTexture = () => {
-      gl.bindTexture(gl.TEXTURE_2D, texture);
-      gl.texElementImage2D!(gl.TEXTURE_2D, gl.RGBA8, htmlGrid);
+    resourcesRef.current = {
+      mesh,
+      vao,
+      posBuffer,
+      uvBuffer,
+      indexBuffer,
+      texture,
+      uMvp,
     };
 
-    const onPaint: EventListener  = () => {
-      uploadHtmlTexture();
+    return () => {
+      const resources = resourcesRef.current;
+      if (!resources) return;
+
+      gl.deleteVertexArray(resources.vao);
+      gl.deleteTexture(resources.texture);
+      gl.deleteBuffer(resources.posBuffer);
+      gl.deleteBuffer(resources.uvBuffer);
+      gl.deleteBuffer(resources.indexBuffer);
+      resourcesRef.current = null;
+    };
+  }, [gl, program, topology, rows, cols]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const htmlGrid = htmlGridRef.current;
+    const resources = resourcesRef.current;
+    if (!canvas || !htmlGrid || !gl || !resources) return;
+
+    const onPaint: EventListener = () => {
+      gl.bindTexture(gl.TEXTURE_2D, resources.texture);
+      gl.texElementImage2D!(gl.TEXTURE_2D, gl.RGBA8, htmlGrid);
       dirtyTextureRef.current = false;
     };
 
-    // Some builds surface only the paint event, not the onpaint property callback.
     canvas.addEventListener('paint', onPaint);
-    canvas.requestPaint!();
+    canvas.requestPaint?.();
 
-    // --- Render Loop ---
+    return () => {
+      canvas.removeEventListener('paint', onPaint);
+    };
+  }, [gl, program, rows, cols]);
+
+  // Render loop
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const resources = resourcesRef.current;
+    if (!canvas || !gl || !program || !resources) return;
+
     const render = (timeMs: number) => {
       if (dirtyTextureRef.current) {
         canvas.requestPaint!();
@@ -164,28 +228,25 @@ export const Canvas: React.FC<CanvasProps> = ({
       );
       const mvp = multiply4(proj, multiply4(view, model));
 
-      if (uMvp) gl.uniformMatrix4fv(uMvp, false, mvp);
-      gl.drawElements(gl.TRIANGLES, mesh.indices.length, gl.UNSIGNED_SHORT, 0);
+      gl.useProgram(program);
+      if (resources.uMvp) gl.uniformMatrix4fv(resources.uMvp, false, mvp);
+
+      // Bind VAO and Draw
+      gl.bindVertexArray(resources.vao);
+      gl.drawElements(gl.TRIANGLES, resources.mesh.indices.length, gl.UNSIGNED_SHORT, 0);
+      gl.bindVertexArray(null);
 
       rafIdRef.current = requestAnimationFrame(render);
     };
 
     rafIdRef.current = requestAnimationFrame(render);
 
-    // --- Cleanup ---
     return () => {
-      observer.disconnect();
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
-      canvas.onpaint = null;
-      canvas.removeEventListener('paint', onPaint);
-      gl.deleteTexture(texture);
-      gl.deleteBuffer(posBuffer);
-      gl.deleteBuffer(uvBuffer);
-      gl.deleteBuffer(indexBuffer);
-      gl.deleteProgram(program);
     };
-  }, [topology, rows, cols]);
+  }, [gl, program, topology, rows, cols]);
 
+  // 6. Mark Texture as Dirty on State Change
   useEffect(() => {
     dirtyTextureRef.current = true;
   }, [grid, aliveColor, deadColor]);
@@ -204,7 +265,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               '--rows': rows,
               '--alive': aliveColor,
               '--dead': deadColor,
-            } as React.CSSProperties // typecaste needed because CSS variables are not part of the standard CSSProperties type
+            } as React.CSSProperties
           }
         >
           {grid.map((row, r) =>

@@ -34,7 +34,7 @@ export function App() {
       <p className="app__status">WASM Status: {isReady ? 'Ready ✅' : 'Initializing...'}</p>
       <p className="app__status">API: {api ? 'Connected' : 'Waiting...'}</p>
       <div className="app__canvas-container">
-        <Canvas grid={grid} topology={Topologies.sphere} />
+        <Canvas grid={grid} topology={Topologies.mobiusBand} />
       </div>
     </div>
   )

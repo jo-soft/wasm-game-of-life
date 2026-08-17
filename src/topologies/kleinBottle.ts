@@ -9,11 +9,20 @@ export const KleinBottle: TopologyConfig = {
     return null;
   },
   parametrization: (u: number, v: number) => {
-    const theta = u * 2 * Math.PI;
-    const phi = v * Math.PI;
-    const x = (2 + Math.cos(theta / 2) * Math.sin(phi) - Math.sin(theta / 2) * Math.sin(2 * phi)) * Math.cos(theta);
-    const y = (2 + Math.cos(theta / 2) * Math.sin(phi) - Math.sin(theta / 2) * Math.sin(2 * phi)) * Math.sin(theta);
-    const z = Math.sin(theta / 2) * Math.sin(phi) + Math.cos(theta / 2) * Math.sin(2 * phi);
+    // R is the main radius (controls central hole size)
+    // r controls tube thickness
+    const R = 1; 
+    const r = 0.4; 
+
+    const uAngle = u * 2 * Math.PI;
+    const vAngle = v * 2 * Math.PI;
+
+    const tubeRadius = R + r * (Math.cos(uAngle / 2) * Math.sin(vAngle) - Math.sin(uAngle / 2) * Math.sin(2 * vAngle));
+
+    const x = tubeRadius * Math.cos(uAngle);
+    const y = tubeRadius * Math.sin(uAngle);
+    const z = r * (Math.sin(uAngle / 2) * Math.sin(vAngle) + Math.cos(uAngle / 2) * Math.sin(2 * vAngle));
+
     return { x, y, z };
   },
 };

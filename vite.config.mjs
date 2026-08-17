@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import glsl from 'vite-plugin-glsl'
 import { execSync, exec } from 'child_process'
 import fs from 'fs'
 import path from 'path'
@@ -170,5 +171,8 @@ function autoGoWasmPlugin() {
 }
 
 export default defineConfig({
-  plugins: [react(), autoGoWasmPlugin()],
+  plugins: [
+    react(), 
+    glsl(),
+    autoGoWasmPlugin()],
 })
